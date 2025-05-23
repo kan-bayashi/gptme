@@ -398,6 +398,11 @@ def get_prompt_session() -> PromptSession:
             """Insert newline on Ctrl+J"""
             event.current_buffer.insert_text("\n")
 
+        @kb.add("escape", "enter")  # Add Escape -> Enter support for newline
+        def _(event):
+            """Insert newline on backslash+Enter"""
+            event.current_buffer.insert_text("\n")
+
         @kb.add("enter")
         def _(event):
             """Submit on Enter."""

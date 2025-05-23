@@ -165,18 +165,26 @@ def chat(messages: list[Message], model: str, tools: list[ToolSpec] | None) -> s
 
     from openai import NOT_GIVEN  # fmt: skip
 
-    is_o1 = base_model.startswith("o1")
+    is_o1 = base_model.startswith("o1") or base_model.startswith("o3") or base_model.startswith("o4")
     is_deepseek_reasoner = base_model == "deepseek-reasoner"
     is_reasoner = is_o1 or is_deepseek_reasoner
 
     messages_dicts, tools_dict = _prepare_messages_for_api(messages, model, tools)
 
+    # Handle o4-mini-high model
+    actual_model = base_model
+    reasoning_effort = NOT_GIVEN
+    if base_model == "o4-mini-high":
+        actual_model = "o4-mini"
+        reasoning_effort = "high"
+
     response = client.chat.completions.create(
-        model=base_model,
+        model=actual_model,
         messages=messages_dicts,  # type: ignore
         temperature=TEMPERATURE if not is_reasoner else NOT_GIVEN,
         top_p=TOP_P if not is_reasoner else NOT_GIVEN,
         tools=tools_dict if tools_dict else NOT_GIVEN,
+        reasoning_effort=reasoning_effort,
         extra_headers=(openrouter_headers if provider == "openrouter" else {}),
     )
     choice = response.choices[0]
@@ -208,20 +216,28 @@ def stream(
 
     from openai import NOT_GIVEN  # fmt: skip
 
-    is_o1 = base_model.startswith("o1") or base_model.startswith("o3")
+    is_o1 = base_model.startswith("o1") or base_model.startswith("o3") or base_model.startswith("o4")
     is_deepseek_reasoner = base_model == "deepseek-reasoner"
     is_reasoner = is_o1 or is_deepseek_reasoner
 
     messages_dicts, tools_dict = _prepare_messages_for_api(messages, model, tools)
     reasoning = ""
 
+    # Handle o4-mini-high model
+    actual_model = base_model
+    reasoning_effort = NOT_GIVEN
+    if base_model == "o4-mini-high":
+        actual_model = "o4-mini"
+        reasoning_effort = "high"
+
     for chunk_raw in client.chat.completions.create(
-        model=base_model,
+        model=actual_model,
         messages=messages_dicts,  # type: ignore
         temperature=TEMPERATURE if not is_reasoner else NOT_GIVEN,
         top_p=TOP_P if not is_reasoner else NOT_GIVEN,
         stream=True,
         tools=tools_dict if tools_dict else NOT_GIVEN,
+        reasoning_effort=reasoning_effort,
         # the llama-cpp-python server needs this explicitly set, otherwise unreliable results
         # TODO: make this better
         # max_tokens=(
@@ -519,7 +535,7 @@ def _prepare_messages_for_api(
 
     model_meta = get_model(model)
 
-    is_o1 = _get_base_model(model).startswith("o1")
+    is_o1 = _get_base_model(model).startswith("o1") or _get_base_model(model).startswith("o3") or _get_base_model(model).startswith("o4")
     if is_o1:
         messages = list(_prep_o1(messages))
     if model_meta.model == "deepseek-reasoner":
